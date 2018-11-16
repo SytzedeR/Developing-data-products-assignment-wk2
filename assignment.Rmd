@@ -1,0 +1,57 @@
+---
+title: "Map"
+author: "Sytze"
+date: "16-11-2018"
+output: html_document
+---
+
+`r date()`
+This project for the Developing Data Product course of Coursera will collect and clean data about bats in the area of the Dutch city Utrecht. The goal is to show bat sightings on a map.
+The bat data set is downloaded directly in R. The zip code data set can be found here: "http://www.sqlblog.nl/downloads/postcodetabel.zip".
+
+```{r message=FALSE}
+library(leaflet); library(dplyr); library(readxl)
+```
+Download and clean the data on bat sightings.
+```{r}
+URLbats <- "https://ckan.dataplatform.nl/dataset/0b65235f-d8ca-4ebc-ac88-3ff732c564a9/resource/ea690d9a-d858-40f6-9b4d-39b5e739b879/download/vleermuisverblijfplaatsenutrecht.csv"
+URLzip <- "http://www.sqlblog.nl/downloads/postcodetabel.zip"
+bats <- read.csv(URLbats)
+batsSight <- bats %>%
+      select(Adres, Wijk.Dorp) 
+batsSight$Straat <- gsub('[[:digit:]]+', '', batsSight$Adres)
+```
+Then import the file with streetnames and their longitude/latitude.
+```{r}
+zip <- read.csv("postcodetabel.csv", header = TRUE, sep = ";")
+```
+
+```{r cache = TRUE, warning=FALSE, message=FALSE}
+zip <- zip %>%
+      select(Straat, Plaats, Latitude, Longitude)
+zip <- as.data.frame(sapply(zip, gsub, pattern = ",", replacement = "."))
+zip$Latitude <- as.numeric(as.character(zip$Latitude))
+zip$Longitude <- as.numeric(as.character(zip$Longitude))
+```
+We combine these datasets to have the streetnames and geographic location in one dataframe.
+```{r warning=FALSE}
+batsLoc <- inner_join(x = batsSight, y = zip)
+batsLoc <- filter(batsLoc, Plaats==c("De Meern", "Haarzuilens", "Bunnik"))
+```
+Unfortunately most street names are written differently in both datasets, resulting in only a small fraction of the original dataset.
+To make the map nicer I download a icon of a bat.
+```{r}
+iconURL <- "https://www.symbols.com/gi.php?type=1&id=1180&i=1"
+batIcon <- makeIcon(iconUrl = iconURL, 
+                    iconWidth = 31*215/230, iconHeight = 31,
+                    iconAnchorX = 31*215/230, iconAnchorY = 16)
+```
+Then I create the map.
+```{r mapoutput}
+df <- select(batsLoc, Latitude, Longitude) %>%
+      rename(lat = Latitude, lng = Longitude) %>%
+      leaflet() %>%
+      addTiles() %>%
+      addMarkers(icon = batIcon)
+df
+```      
